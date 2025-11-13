@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>手机端图片滑动（带下方进度展示）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            padding: 20px 0;
+            background-color: #f5f5f5;
+        }
+
+        /* 图片滑动容器 */
+        .slider-container {
+            width: 90%;
+            max-width: 400px;
+            height: 300px;
+            margin: 0 auto;
+            overflow: hidden;
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .slider-wrapper {
+            display: flex;
+            height: 100%;
+            transition: transform 0.3s ease;
+            touch-action: pan-y; /* 禁止垂直滚动干扰 */
+        }
+
+        .slider-item {
+            flex: 0 0 auto;
+            width: 100%;
+            height: 100%;
+        }
+
+        .slider-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 保持图片比例，填满容器 */
+            display: block;
+        }
+
+        /* 下方缩略图进度展示 */
+        .slider-thumbnails {
+            width: 90%;
+            max-width: 400px;
+            margin: 15px auto 0;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .thumbnail-item {
+            width: 60px;
+            height: 40px;
+            border-radius: 6px;
+            overflow: hidden;
+            opacity: 0.6;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .thumbnail-item.active {
+            opacity: 1;
+            border-color: #2196F3; /* 高亮边框 */
+            transform: scale(1.05); /* 轻微放大 */
+        }
+
+        .thumbnail-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* 简单提示文本 */
+        .tip-text {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="slider-container">
+        <div class="slider-wrapper">
+            <div class="slider-item">
+                <img src="https://picsum.photos/id/237/800/600" alt="图片1">
+            </div>
+            <div class="slider-item">
+                <img src="https://picsum.photos/id/10/800/600" alt="图片2">
+            </div>
+            <div class="slider-item">
+                <img src="https://picsum.photos/id/1005/800/600" alt="图片3">
+            </div>
+            <div class="slider-item">
+                <img src="https://picsum.photos/id/1015/800/600" alt="图片4">
+            </div>
+        </div>
+    </div>
+
+    <!-- 下方缩略图进度展示区 -->
+    <div class="slider-thumbnails">
+        <div class="thumbnail-item active" data-index="0">
+            <img src="https://picsum.photos/id/237/120/80" alt="缩略图1">
+        </div>
+        <div class="thumbnail-item" data-index="1">
+            <img src="https://picsum.photos/id/10/120/80" alt="缩略图2">
+        </div>
+        <div class="thumbnail-item" data-index="2">
+            <img src="https://picsum.photos/id/1005/120/80" alt="缩略图3">
+        </div>
+        <div class="thumbnail-item" data-index="3">
+            <img src="https://picsum.photos/id/1015/120/80" alt="缩略图4">
+        </div>
+    </div>
+
+    <p class="tip-text">左右滑动图片切换 | 点击缩略图快速跳转</p>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sliderWrapper = document.querySelector('.slider-wrapper');
+            const sliderItems = document.querySelectorAll('.slider-item');
+            const thumbnails = document.querySelectorAll('.thumbnail-item');
+            
+            let currentIndex = 0;
+            const itemCount = sliderItems.length;
+            let itemWidth = sliderItems[0].offsetWidth; // 单张图片宽度
+            let startX = 0; // 触摸起始X坐标
+            let isSliding = false; // 是否正在滑动
+
+            // 更新滑块位置和缩略图状态
+            function updateSlider() {
+                sliderWrapper.style.transform = `translateX(-${currentIndex * itemWidth}px)`;
+                // 同步缩略图高亮
+                thumbnails.forEach((thumb, index) => {
+                    thumb.classList.toggle('active', index === currentIndex);
+                });
+            }
+
+            // 触摸开始：记录起始位置
+            sliderWrapper.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                isSliding = true;
+                sliderWrapper.style.transition = 'none'; // 取消过渡，准备手动滑动
+            });
+
+            // 触摸滑动：实时更新位置
+            sliderWrapper.addEventListener('touchmove', function(e) {
+                if (!isSliding) return;
+                const moveX = e.touches[0].clientX - startX;
+                // 限制滑动范围（避免左右过度滑动）
+                const maxMove = itemWidth * 0.3;
+                const currentTranslate = -currentIndex * itemWidth + moveX;
+                if (currentTranslate > maxMove || currentTranslate < -(itemCount - 1) * itemWidth - maxMove) {
+                    return;
+                }
+                sliderWrapper.style.transform = `translateX(${currentTranslate}px)`;
+            });
+
+            // 触摸结束：判断是否切换图片
+            sliderWrapper.addEventListener('touchend', function() {
+                if (!isSliding) return;
+                isSliding = false;
+                const endX = event.changedTouches[0].clientX;
+                const deltaX = endX - startX; // 滑动距离
+
+                // 滑动距离超过阈值（或快速滑动）则切换图片
+                if (Math.abs(deltaX) > 50 || Math.abs(deltaX) / event.timeStamp < -0.1) {
+                    if (deltaX > 0) {
+                        // 向左滑（显示上一张）
+                        currentIndex = (currentIndex - 1 + itemCount) % itemCount;
+                    } else {
+                        // 向右滑（显示下一张）
+                        currentIndex = (currentIndex + 1) % itemCount;
+                    }
+                }
+
+                // 恢复过渡效果，更新位置
+                sliderWrapper.style.transition = 'transform 0.3s ease';
+                updateSlider();
+            });
+
+            // 点击缩略图跳转
+            thumbnails.forEach(thumb => {
+                thumb.addEventListener('click', function() {
+                    currentIndex = parseInt(this.dataset.index);
+                    updateSlider();
+                });
+            });
+
+            // 窗口 resize 时重新计算图片宽度
+            window.addEventListener('resize', function() {
+                itemWidth = sliderItems[0].offsetWidth;
+                updateSlider();
+            });
+        });
+    </script>
+</body>
+</html>
